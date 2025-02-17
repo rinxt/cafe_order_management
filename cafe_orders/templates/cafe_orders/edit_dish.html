@@ -1,0 +1,18 @@
+{% extends 'cafe_orders/base.html' %}
+
+{% block content %}
+    <!--
+    Шаблон редактирования блюда.
+
+    Зависимости:
+    - Bootstrap для стилизации
+    - Django FormSet для управления связанными формами
+    -->
+    <h2>Редактировать блюдо</h2>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-success">Сохранить</button>
+        <a href="{% url 'dish_list' %}" class="btn btn-secondary">Отмена</a>
+    </form>
+{% endblock %}

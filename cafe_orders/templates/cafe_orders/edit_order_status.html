@@ -1,0 +1,18 @@
+{% extends 'cafe_orders/base.html' %}
+
+{% block content %}
+    <!--
+    Шаблон изменения статуса заказа.
+
+    Зависимости:
+    - Bootstrap для стилизации
+    - Django FormSet для управления связанными формами
+    -->
+    <h2>Изменить статус заказа {{ order.id }}</h2>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn btn-primary">Обновить статус</button>
+        <a href="{% url 'order_list' %}" class="btn btn-secondary">Отмена</a>
+    </form>
+{% endblock %}

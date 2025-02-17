@@ -1,0 +1,36 @@
+{% extends 'cafe_orders/base.html' %}
+
+{% block content %}
+    <!--
+    Шаблон списка блюд.
+
+    Зависимости:
+    - Bootstrap для стилизации
+    - Django FormSet для управления связанными формами
+    -->
+    <h2>Список блюд</h2>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Название</th>
+                <th>Цена</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for dish in dishes %}
+                <tr>
+                    <td>{{ dish.name }}</td>
+                    <td>{{ dish.price }}</td>
+                    <td>
+                        <a href="{% url 'edit_dish' dish.pk %}" class="btn btn-primary btn-sm">Редактировать</a>
+                        <a href="{% url 'delete_dish' dish.pk %}" class="btn btn-danger btn-sm">Удалить</a>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <a href="{% url 'add_dish' %}" class="btn btn-success">Добавить блюдо</a>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends 'cafe_orders/base.html' %}
+
+{% block content %}
+  <!--
+  Шаблон расчета выручки за смену.
+
+  Зависимости:
+  - Bootstrap для стилизации
+  - Django FormSet для управления связанными формами
+  -->
+<h2>Расчет выручки за смену</h2>
+<p><strong>Общая выручка:</strong> {{ revenue }}₽</p>
+<a href="{% url 'order_list' %}" class="btn btn-secondary">Назад</a>
+{% endblock %}
