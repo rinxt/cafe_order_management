@@ -30,20 +30,8 @@ git clone https://github.com/rinxt/cafe_order_management.git
 ```
 
 ### 2. Настройка проекта
-В проекте используется python 3.11. Если Python не установлен, установите его.
+Установите локальный интерпретатор python с виртуальным окружением для проекта.
 
-Установите venv (если еще не установлен):
-```bash
-python -m pip install --user virtualenv
-```
-Создайте виртуальное окружение:
-```bash
-python -m venv venv
-```
-Активируйте виртуальное окружение:
-```bash
-source venv/bin/activate
-```
 Добавьте новую конфигурацию:
 
 Run Configuration -> Django Server.
