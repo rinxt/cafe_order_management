@@ -1,4 +1,6 @@
 from django import forms
+
+from .constants import TABLE_NUMBERS, ORDER_STATUS_MAP, FORM_CONTROL_CLASS, MESSAGES, DEFAULT_QUANTITY
 from .models import Order, OrderItem
 from django.forms import inlineformset_factory
 from typing import List, Optional, Any, Tuple
@@ -21,9 +23,10 @@ class OrderForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
 
         if free_tables is None:
-            all_tables: set = set(range(1, 16))
-            occupied_tables: set = set(Order.objects.filter(status__in=['pending', 'ready'])
-                                       .values_list('table_number', flat=True))
+            all_tables: set = set(TABLE_NUMBERS)
+            occupied_tables: set = set(
+                Order.objects.filter(status__in=[ORDER_STATUS_MAP['в ожидании'], ORDER_STATUS_MAP['готово']])
+                .values_list('table_number', flat=True))
             free_tables = sorted(list(all_tables - occupied_tables))
 
         choices: List[Tuple[int, str]] = [(table, f"Стол {table}") for table in free_tables]
@@ -32,7 +35,7 @@ class OrderForm(forms.ModelForm):
 
         self.fields['table_number'] = forms.ChoiceField(
             choices=choices,
-            widget=forms.Select(attrs={'class': 'form-control'}),
+            widget=forms.Select(attrs={'class': FORM_CONTROL_CLASS}),
             label="Стол"
         )
 
@@ -47,11 +50,8 @@ class OrderForm(forms.ModelForm):
             forms.ValidationError: Если на выбранном столе уже есть активный заказ.
         """
         table_number: int = int(self.cleaned_data.get('table_number'))
-        if Order.objects.filter(table_number=table_number).exclude(status='paid').exists():
-            raise forms.ValidationError(
-                "На данном столе уже оформлен активный заказ. "
-                "Пожалуйста, выберите другой стол."
-            )
+        if Order.objects.filter(table_number=table_number).exclude(status=ORDER_STATUS_MAP['оплачено']).exists():
+            raise forms.ValidationError(MESSAGES['no_free_tables'])
         return table_number
 
     class Meta:
@@ -73,8 +73,8 @@ class OrderItemForm(forms.ModelForm):
         model = OrderItem
         fields: List[str] = ['dish', 'quantity']
         widgets = {
-            'dish': forms.Select(attrs={'class': 'form-control'}),
-            'quantity': forms.NumberInput(attrs={'class': 'form-control'}),
+            'dish': forms.Select(attrs={'class': FORM_CONTROL_CLASS}),
+            'quantity': forms.NumberInput(attrs={'class': FORM_CONTROL_CLASS}),
         }
 
     def clean_quantity(self) -> int:
@@ -88,8 +88,8 @@ class OrderItemForm(forms.ModelForm):
             forms.ValidationError: Если количество меньше 1.
         """
         quantity: int = self.cleaned_data.get('quantity')
-        if quantity < 1:
-            raise forms.ValidationError("Количество должно быть не меньше 1.")
+        if quantity < DEFAULT_QUANTITY:
+            raise forms.ValidationError(MESSAGES['add_at_least_one_dish'])
         return quantity
 
 

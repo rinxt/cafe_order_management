@@ -9,6 +9,7 @@ from django.db.models import Sum, ExpressionWrapper, F, QuerySet
 from django.contrib import messages
 from typing import List, Dict, Any, Optional
 
+from . import constants
 from .models import Order, OrderItem, Dish
 from .forms import OrderForm, OrderItemFormSet, OrderItemEditFormSet
 from .serializers import OrderSerializer
@@ -55,13 +56,13 @@ def add_dish(request: HttpRequest) -> HttpResponse:
         if form.is_valid():
             try:
                 form.save()
-                messages.success(request, 'Блюдо успешно добавлено.')
+                messages.success(request, constants.MESSAGES['dish_added_success'])
                 return redirect('dish_list')
             except Exception as e:
-                messages.error(request, f'Ошибка при добавлении блюда: {str(e)}')
+                messages.error(request, constants.MESSAGES['dish_added_error'].format(error=str(e)))
     else:
         form = DishForm()
-    return render(request, 'cafe_orders/add_dish.html', {'form': form})
+    return render(request, constants.TEMPLATE_PATHS['add_dish'], {'form': form})
 
 
 def edit_dish(request: HttpRequest, pk: int) -> HttpResponse:
@@ -81,13 +82,13 @@ def edit_dish(request: HttpRequest, pk: int) -> HttpResponse:
         if form.is_valid():
             try:
                 form.save()
-                messages.success(request, 'Блюдо успешно обновлено.')
+                messages.success(request, constants.MESSAGES['dish_updated_success'])
                 return redirect('dish_list')
             except Exception as e:
-                messages.error(request, f'Ошибка при обновлении блюда: {str(e)}')
+                messages.error(request, constants.MESSAGES['dish_updated_error'].format(error=str(e)))
     else:
         form = DishForm(instance=dish)
-    return render(request, 'cafe_orders/edit_dish.html', {'form': form})
+    return render(request, constants.TEMPLATE_PATHS['edit_dish'], {'form': form})
 
 
 def delete_dish(request: HttpRequest, pk: int) -> HttpResponse:
@@ -105,11 +106,11 @@ def delete_dish(request: HttpRequest, pk: int) -> HttpResponse:
     if request.method == 'POST':
         try:
             dish.delete()
-            messages.success(request, "Блюдо успешно удалено.")
+            messages.success(request, constants.MESSAGES['dish_deleted_success'])
             return redirect('dish_list')
         except Exception as e:
-            messages.error(request, f'Ошибка при удалении блюда: {str(e)}')
-    return render(request, 'cafe_orders/delete_dish.html', {'dish': dish})
+            messages.error(request, constants.MESSAGES['dish_deleted_error'].format(error=str(e)))
+    return render(request, constants.TEMPLATE_PATHS['delete_dish'], {'dish': dish})
 
 
 def order_list(request: HttpRequest) -> HttpResponse:
@@ -133,29 +134,23 @@ def order_list(request: HttpRequest) -> HttpResponse:
                 table_number: int = int(table_query)
                 orders = orders.filter(table_number=table_number)
             except ValueError:
-                messages.error(request, 'Некорректный номер стола.')
+                messages.error(request, constants.MESSAGES['table_number_invalid'])
         else:
-            messages.error(request, 'Некорректный номер стола.')
-
-    status_map: Dict[str, str] = {
-        'в ожидании': 'pending',
-        'готово': 'ready',
-        'оплачено': 'paid'
-    }
+            messages.error(request, constants.MESSAGES['table_number_invalid'])
 
     if status_query:
-        mapped_status: str = status_map.get(status_query.lower(), '')
+        mapped_status: str = constants.ORDER_STATUS_MAP.get(status_query.lower(), '')
         if mapped_status:
             orders = orders.filter(status__iexact=mapped_status)
         else:
-            messages.error(request, 'Некорректный статус заказа.')
+            messages.error(request, constants.MESSAGES['status_invalid'])
 
     context: Dict[str, Any] = {
         'orders': orders,
         'table_query': table_query,
         'status_query': status_query,
     }
-    return render(request, 'cafe_orders/order_list.html', context)
+    return render(request, constants.TEMPLATE_PATHS['order_list'], context)
 
 
 def add_order(request: HttpRequest) -> HttpResponse:
@@ -168,12 +163,13 @@ def add_order(request: HttpRequest) -> HttpResponse:
     Returns:
         HttpResponse: Ответ с формой добавления заказа или перенаправление на список заказов после успешного добавления.
     """
-    all_tables: set = set(range(1, 16))
-    occupied_tables: set = set(Order.objects.filter(status__in=['pending', 'ready']).values_list('table_number', flat=True))
+    all_tables: set = set(constants.TABLE_NUMBERS)
+    occupied_tables: set = set(
+        Order.objects.filter(status__in=['pending', 'ready']).values_list('table_number', flat=True))
     free_tables: List[int] = sorted(list(all_tables - occupied_tables))
 
     if not free_tables:
-        messages.error(request, "Нет свободных столов на данный момент")
+        messages.error(request, constants.MESSAGES['no_free_tables'])
         return redirect('order_list')
 
     if request.method == 'POST':
@@ -183,23 +179,23 @@ def add_order(request: HttpRequest) -> HttpResponse:
         if form.is_valid() and formset.is_valid():
             try:
                 order: Order = form.save(commit=False)
-                order.status = 'pending'
+                order.status = constants.DEFAULT_ORDER_STATUS
                 order.save()
                 formset.instance = order
                 if formset.has_changed():
                     formset.save()
                 else:
-                    messages.warning(request, 'Добавьте хотя бы одно блюдо к заказу.')
+                    messages.warning(request, constants.MESSAGES['add_at_least_one_dish'])
                     return render(
                         request,
-                        'cafe_orders/add_order.html',
+                        constants.TEMPLATE_PATHS['add_order'],
                         {'form': form, 'formset': formset}
                     )
 
-                messages.success(request, 'Заказ успешно добавлен.')
+                messages.success(request, constants.MESSAGES['order_added_success'])
                 return redirect('order_list')
             except Exception as e:
-                messages.error(request, f'Ошибка при создании заказа: {str(e)}')
+                messages.error(request, constants.MESSAGES['order_added_error'].format(error=str(e)))
         else:
             messages.error(request, 'Пожалуйста, исправьте ошибки в форме.')
     else:
@@ -208,7 +204,7 @@ def add_order(request: HttpRequest) -> HttpResponse:
 
     return render(
         request,
-        'cafe_orders/add_order.html',
+        constants.TEMPLATE_PATHS['add_order'],
         {'form': form, 'formset': formset}
     )
 
@@ -226,20 +222,22 @@ def update_order(request: HttpRequest, order_id: int) -> HttpResponse:
     """
     order: Order = get_object_or_404(Order, id=order_id)
     order_items: QuerySet[OrderItem] = order.items.all()
-    initial: List[Dict[str, Any]] = [{'id': item.id, 'dish': item.dish, 'quantity': item.quantity} for item in order_items]
+    initial: List[Dict[str, Any]] = [{'id': item.id, 'dish': item.dish, 'quantity': item.quantity} for item in
+                                     order_items]
 
     if request.method == 'POST':
-        formset: OrderItemEditFormSet = OrderItemEditFormSet(request.POST, instance=order, initial=initial, prefix='orderitems')
+        formset: OrderItemEditFormSet = OrderItemEditFormSet(request.POST, instance=order, initial=initial,
+                                                             prefix='orderitems')
         if formset.is_valid():
             try:
                 if formset.has_changed():
                     formset.save()
-                    messages.success(request, 'Заказ успешно обновлен.')
+                    messages.success(request, constants.MESSAGES['order_updated_success'])
                     return redirect('order_list')
                 else:
-                    messages.warning(request, 'Нет изменений для сохранения.')
+                    messages.warning(request, constants.MESSAGES['no_changes_to_save'])
             except Exception as e:
-                messages.error(request, f'Ошибка при обновлении заказа: {str(e)}')
+                messages.error(request, constants.MESSAGES['order_updated_error'].format(error=str(e)))
         else:
             messages.error(request, 'Исправьте ошибки в форме.')
     else:
@@ -247,7 +245,7 @@ def update_order(request: HttpRequest, order_id: int) -> HttpResponse:
 
     return render(
         request,
-        'cafe_orders/update_order.html',
+        constants.TEMPLATE_PATHS['update_order'],
         {'order': order, 'formset': formset}
     )
 
@@ -269,13 +267,13 @@ def edit_order_status(request: HttpRequest, pk: int) -> HttpResponse:
         if form.is_valid():
             try:
                 form.save()
-                messages.success(request, 'Статус заказа обновлен.')
+                messages.success(request, constants.MESSAGES['order_status_updated_success'])
                 return redirect('order_list')
             except Exception as e:
-                messages.error(request, f'Ошибка при обновлении статуса заказа: {str(e)}')
+                messages.error(request, constants.MESSAGES['order_status_updated_error'].format(error=str(e)))
     else:
         form = OrderForm(instance=order)
-    return render(request, 'cafe_orders/edit_order_status.html', {'form': form, 'order': order})
+    return render(request, constants.TEMPLATE_PATHS['edit_order_status'], {'form': form, 'order': order})
 
 
 def delete_order(request: HttpRequest, pk: int) -> HttpResponse:
@@ -293,9 +291,9 @@ def delete_order(request: HttpRequest, pk: int) -> HttpResponse:
     if request.method == 'POST':
         try:
             order.delete()
-            messages.success(request, 'Заказ успешно удален.')
+            messages.success(request, constants.MESSAGES['order_deleted_success'])
         except Exception as e:
-            messages.error(request, f'Ошибка при удалении заказа: {str(e)}')
+            messages.error(request, constants.MESSAGES['order_deleted_error'].format(error=str(e)))
     return redirect('order_list')
 
 
@@ -312,11 +310,11 @@ def delete_all_orders(request: HttpRequest) -> HttpResponse:
     if request.method == 'POST':
         try:
             Order.objects.all().delete()
-            messages.success(request, 'Все заказы успешно удалены.')
+            messages.success(request, constants.MESSAGES['all_orders_deleted_success'])
         except Exception as e:
-            messages.error(request, f'Ошибка при удалении всех заказов: {str(e)}')
+            messages.error(request, constants.MESSAGES['all_orders_deleted_error'].format(error=str(e)))
         return redirect('order_list')
-    return render(request, 'cafe_orders/delete_all_orders.html')
+    return render(request, constants.TEMPLATE_PATHS['delete_all_orders'])
 
 
 def update_order_status(request: HttpRequest, pk: int) -> HttpResponse:
@@ -338,11 +336,11 @@ def update_order_status(request: HttpRequest, pk: int) -> HttpResponse:
             try:
                 order.status = new_status  # type: ignore
                 order.save()
-                messages.success(request, 'Статус заказа обновлен.')
+                messages.success(request, constants.MESSAGES['order_status_updated_success'])
             except Exception as e:
-                messages.error(request, f'Ошибка при обновлении статуса: {str(e)}')
+                messages.error(request, constants.MESSAGES['order_status_updated_error'].format(error=str(e)))
         else:
-            messages.error(request, 'Неверный статус заказа.')
+            messages.error(request, constants.MESSAGES['status_invalid'])
     return redirect('order_list')
 
 
@@ -357,16 +355,17 @@ def calculate_revenue(request: HttpRequest) -> HttpResponse:
         HttpResponse: Ответ с суммой выручки.
     """
     try:
-        revenue_data: Dict[str, Any] = OrderItem.objects.filter(order__status='paid').aggregate(
+        revenue_data: Dict[str, Any] = OrderItem.objects.filter(
+            order__status=constants.REVENUE_CALCULATION_STATUS).aggregate(
             total_revenue=Sum(
                 ExpressionWrapper(F('dish__price') * F('quantity'), output_field=DecimalField())
             )
         )
         revenue: Any = revenue_data.get('total_revenue') or 0
     except Exception as e:
-        messages.error(request, f'Ошибка при расчете выручки: {str(e)}')
+        messages.error(request, constants.MESSAGES['revenue_calculation_error'].format(error=str(e)))
         revenue = 0
-    return render(request, 'cafe_orders/revenue.html', {'revenue': revenue})
+    return render(request, constants.TEMPLATE_PATHS['revenue'], {'revenue': revenue})
 
 
 class OrderViewSet(viewsets.ModelViewSet):
@@ -377,7 +376,7 @@ class OrderViewSet(viewsets.ModelViewSet):
     """
     serializer_class: type = OrderSerializer
     filter_backends: List = [filters.SearchFilter]
-    search_fields: List[str] = ['table_number', 'status']
+    search_fields: List[str] = constants.ORDER_SEARCH_FIELDS
 
     def get_queryset(self) -> QuerySet[Order]:
         """
@@ -397,13 +396,8 @@ class OrderViewSet(viewsets.ModelViewSet):
             except ValueError:
                 pass
 
-        status_map: Dict[str, str] = {
-            'в ожидании': 'pending',
-            'готово': 'ready',
-            'оплачено': 'paid'
-        }
         if status_query and status_query.lower() != 'все статусы':
-            mapped_status: Optional[str] = status_map.get(status_query.lower())
+            mapped_status: Optional[str] = constants.ORDER_STATUS_MAP.get(status_query.lower())
             if mapped_status:
                 queryset = queryset.filter(status__iexact=mapped_status)
         return queryset
@@ -444,4 +438,5 @@ class OrderViewSet(viewsets.ModelViewSet):
             Order.objects.all().delete()
             return Response({'status': 'Все заказы удалены'}, status=status.HTTP_200_OK)
         except Exception as e:
-            return Response({'status': f'Ошибка при удалении заказов: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'status': f'Ошибка при удалении заказов: {str(e)}'},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -3,6 +3,10 @@ from django.core.validators import MinValueValidator
 from decimal import Decimal
 from typing import List, Tuple
 
+from cafe_orders.constants import DISH_PRICE_MAX_DIGITS, DISH_PRICE_DECIMAL_PLACES, DISH_PRICE_MIN_VALUE, \
+    DISH_NAME_MAX_LENGTH, DISH_STR_FORMAT, ORDER_TABLE_NUMBER_MIN_VALUE, ORDER_STATUS_CHOICES, DEFAULT_ORDER_STATUS, \
+    ORDER_STR_FORMAT, DEFAULT_QUANTITY, ORDER_ITEM_QUANTITY_MIN_VALUE, ORDER_ITEM_STR_FORMAT
+
 
 class Dish(models.Model):
     """
@@ -12,12 +16,12 @@ class Dish(models.Model):
         name (CharField): Название блюда (максимальная длина 100 символов, уникальное).
         price (DecimalField): Цена блюда (максимально 7 знаков, 2 знака после запятой, минимальное значение 0.00).
     """
-    name = models.CharField("Название блюда", max_length=100, unique=True)
+    name = models.CharField("Название блюда", max_length=DISH_NAME_MAX_LENGTH, unique=True)
     price = models.DecimalField(
         "Цена",
-        max_digits=7,
-        decimal_places=2,
-        validators=[MinValueValidator(Decimal('0.00'))]
+        max_digits=DISH_PRICE_MAX_DIGITS,
+        decimal_places=DISH_PRICE_DECIMAL_PLACES,
+        validators=[MinValueValidator(Decimal(DISH_PRICE_MIN_VALUE))]
     )
 
     def __str__(self) -> str:
@@ -27,7 +31,7 @@ class Dish(models.Model):
         Returns:
             str: Строковое представление блюда в формате "Название - Цена₽".
         """
-        return f"{self.name} - {self.price}₽"
+        return DISH_STR_FORMAT.format(name=self.name, price=self.price)
 
 
 class Order(models.Model):
@@ -41,14 +45,18 @@ class Order(models.Model):
         created_at (DateTimeField): Дата и время создания заказа (автоматически устанавливается при создании).
         updated_at (DateTimeField): Дата и время обновления заказа (автоматически обновляется при каждом сохранении).
     """
-    STATUS_CHOICES: List[Tuple[str, str]] = [
-        ('pending', 'В ожидании'),
-        ('ready', 'Готово'),
-        ('paid', 'Оплачено'),
-    ]
+    STATUS_CHOICES: List[Tuple[str, str]] = ORDER_STATUS_CHOICES
 
-    table_number = models.PositiveIntegerField("Номер стола", validators=[MinValueValidator(1)])
-    status = models.CharField("Статус заказа", max_length=10, choices=STATUS_CHOICES, default='pending')
+    table_number = models.PositiveIntegerField(
+        "Номер стола",
+        validators=[MinValueValidator(ORDER_TABLE_NUMBER_MIN_VALUE)]
+    )
+    status = models.CharField(
+        "Статус заказа",
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default=DEFAULT_ORDER_STATUS,
+    )
     created_at = models.DateTimeField("Создано", auto_now_add=True)
     updated_at = models.DateTimeField("Обновлено", auto_now=True)
 
@@ -70,7 +78,7 @@ class Order(models.Model):
         Returns:
             str: Строковое представление заказа в формате "Заказ id - Стол номер_стола".
         """
-        return f"Заказ {self.id} - Стол {self.table_number}"
+        return ORDER_STR_FORMAT.format(id=self.id, table_number=self.table_number)
 
 
 class OrderItem(models.Model):
@@ -84,7 +92,11 @@ class OrderItem(models.Model):
     """
     order = models.ForeignKey(Order, related_name='items', on_delete=models.CASCADE)
     dish = models.ForeignKey(Dish, default=1, on_delete=models.CASCADE, verbose_name="Блюдо")
-    quantity = models.PositiveIntegerField("Количество", default=1, validators=[MinValueValidator(1)])
+    quantity = models.PositiveIntegerField(
+        "Количество",
+        default=DEFAULT_QUANTITY,
+        validators=[MinValueValidator(ORDER_ITEM_QUANTITY_MIN_VALUE)]
+    )
 
     @property
     def price(self) -> Decimal:
@@ -103,4 +115,8 @@ class OrderItem(models.Model):
         Returns:
             str: Строковое представление позиции заказа в формате "Название_блюда x Количество - Цена₽".
         """
-        return f"{self.dish.name} x {self.quantity} - {self.price}₽"
+        return ORDER_ITEM_STR_FORMAT.format(
+            dish_name=self.dish.name,
+            quantity=self.quantity,
+            price=self.price,
+        )

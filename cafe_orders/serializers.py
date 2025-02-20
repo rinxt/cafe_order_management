@@ -1,4 +1,7 @@
 from rest_framework import serializers
+
+from .constants import ORDER_ITEM_FIELDS, DISH_PRICE_DECIMAL_PLACES, DISH_PRICE_MAX_DIGITS, ORDER_FIELDS, \
+    ORDER_READ_ONLY_FIELDS
 from .models import Order, OrderItem, Dish
 from typing import List, Dict, Any, Optional
 
@@ -14,14 +17,18 @@ class OrderItemSerializer(serializers.ModelSerializer):
         slug_field='name',
         queryset=Dish.objects.all()
     )
-    price = serializers.DecimalField(max_digits=7, decimal_places=2, read_only=True)
+    price = serializers.DecimalField(
+        max_digits=DISH_PRICE_MAX_DIGITS,
+        decimal_places=DISH_PRICE_DECIMAL_PLACES,
+        read_only=True
+    )
 
     class Meta:
         """
         Метаданные сериализатора.
         """
         model = OrderItem
-        fields: List[str] = ['id', 'dish', 'quantity', 'price']
+        fields: List[str] = ORDER_ITEM_FIELDS
 
 
 class OrderSerializer(serializers.ModelSerializer):
@@ -39,8 +46,8 @@ class OrderSerializer(serializers.ModelSerializer):
         Метаданные сериализатора.
         """
         model = Order
-        fields: List[str] = ['id', 'table_number', 'status', 'created_at', 'updated_at', 'total_price', 'items']
-        read_only_fields: List[str] = ['id', 'created_at', 'updated_at', 'total_price']
+        fields: List[str] = ORDER_FIELDS
+        read_only_fields: List[str] = ORDER_READ_ONLY_FIELDS
 
     def create(self, validated_data: Dict[str, Any]) -> Order:
         """
